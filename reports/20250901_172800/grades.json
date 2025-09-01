@@ -1,0 +1,27 @@
+{
+  "created_at": "20250901_172800",
+  "items": [
+    {
+      "timestamp": "20250901_172800",
+      "file": "Task0_Numpy-Copy1.ipynb",
+      "name": "Василий Петров",
+      "group": "AI-101",
+      "assignment": "NP-00",
+      "score": 0.0,
+      "status": "PASSED",
+      "mtime_iso": "2025-09-01T14:24:38.910460+00:00",
+      "report_dir": "reports/20250901_172800"
+    },
+    {
+      "timestamp": "20250901_172800",
+      "file": "Task0_Numpy-Copy2.ipynb",
+      "name": "Maks Петров",
+      "group": "AI-101",
+      "assignment": "NP-00",
+      "score": 0.0,
+      "status": "PASSED",
+      "mtime_iso": "2025-09-01T14:27:49.483187+00:00",
+      "report_dir": "reports/20250901_172800"
+    }
+  ]
+}

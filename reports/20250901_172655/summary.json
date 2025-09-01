@@ -1,0 +1,10 @@
+{
+  "created_at": "20250901_172655",
+  "target_dir": "/mnt/d/projects/home-work-checker/inbox",
+  "patterns": [
+    "*.py",
+    "*.ipynb"
+  ],
+  "total_elapsed_sec": 0.0,
+  "items": []
+}

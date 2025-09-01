@@ -1,0 +1,1 @@
+{"name": "Иван Петров", "group": "AI-101", "assignment": "NP-00", "score": 0.0}

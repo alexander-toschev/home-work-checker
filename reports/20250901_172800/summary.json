@@ -1,0 +1,31 @@
+{
+  "created_at": "20250901_172800",
+  "target_dir": "/mnt/d/projects/home-work-checker/data",
+  "patterns": [
+    "*.py",
+    "*.ipynb"
+  ],
+  "total_elapsed_sec": 2.735,
+  "items": [
+    {
+      "timestamp": "20250901_172800",
+      "file": "Task0_Numpy-Copy1.ipynb",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_sec": 1.397,
+      "mtime_epoch": 1756736678.9104595,
+      "mtime_iso": "2025-09-01T14:24:38.910460+00:00",
+      "report_dir": "reports/20250901_172800"
+    },
+    {
+      "timestamp": "20250901_172800",
+      "file": "Task0_Numpy-Copy2.ipynb",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_sec": 1.285,
+      "mtime_epoch": 1756736869.483187,
+      "mtime_iso": "2025-09-01T14:27:49.483187+00:00",
+      "report_dir": "reports/20250901_172800"
+    }
+  ]
+}
