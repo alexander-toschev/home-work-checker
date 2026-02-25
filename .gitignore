@@ -6,3 +6,4 @@ token.json
 /reports
 reports/summary_all_runs.csv
 reports/grades_all_runs.csv
+/.ipynb_checkpoints
