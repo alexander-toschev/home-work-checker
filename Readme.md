@@ -244,3 +244,22 @@ pip install nbclient nbformat jupyter
 
 ## License
 Add your license here (MIT/Apache-2.0/Proprietary/etc.).
+
+
+## NumPy Task0 compatibility
+
+`cv-course/Tasks/Task0_Numpy.ipynb` emits a single final JSON line with
+`name`, `group`, `assignment="NP-00"`, and a finite numeric `score` (0–100).
+The current Task0 template does not apply a deadline penalty. A task-level
+exception is reported by its self-check and does not discard other tasks' points.
+
+A submission that crashes or emits no valid numeric score is retained in the
+reports with an empty score; it does not stop the remaining batch when
+`STOP_ON_FAIL=False`. A successful process without a valid score is marked
+`FAILED`. `PASSED` describes successful execution and extraction, not full marks.
+
+Core regression tests (no Sheets export or student submissions):
+
+```sh
+python -m unittest discover -s tests -v
+```
