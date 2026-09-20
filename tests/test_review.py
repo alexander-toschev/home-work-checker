@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from submission_review import compare, identity_key, audit_history
-from checker_handoff import calculate_penalty, build_handoff
+from checker_handoff import calculate_penalty, build_handoff, CHECKER_VERSION
 
 COMMENT = '# I chose this particular check because the last column may contain an empty value after filtering.'
 
@@ -73,6 +73,8 @@ class PenaltyTests(unittest.TestCase):
             review={'findings':[],'read_errors':[]}
             report=build_handoff(r,r,[grade],review)
             self.assertFalse(report['writes_google']);self.assertEqual(report['attempts'][0]['status'],'NEEDS_REVIEW')
+            self.assertEqual(report['checker_version'],CHECKER_VERSION)
+            self.assertEqual(CHECKER_VERSION,'1.0.0')
             receipt={'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'student_id':'s1','assignment':'NP-00','submitted_at':self.p['due']}
             report=build_handoff(r,r,[grade],review,{'NP-00':self.p},{'a.py':receipt})
             self.assertEqual(report['attempts'][0]['penalty']['final_score'],80)
