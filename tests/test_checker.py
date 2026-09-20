@@ -20,6 +20,17 @@ def load_harness():
 
 class CheckerTests(unittest.TestCase):
     def setUp(self): self.h = load_harness()
+    def test_original_is_archived_before_execution(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);target=root/'inbox';target.mkdir()
+            source='from pathlib import Path\nPath(__file__).write_text("changed")\nprint(\'{"name":"A","group":"G","assignment":"NP-00","score":85}\')'
+            (target/'a.py').write_text(source)
+            with contextlib.redirect_stdout(io.StringIO()):
+                result=self.h['run_checks'](target,['*.py'],20,False,root/'reports',True,0)
+            run=Path(result['report_dir']).name
+            self.assertEqual((root/'reports'/'submissions'/run/'a.py').read_text(),source)
+            self.assertFalse(result['assistant_handoff']['writes_google'])
+            self.assertEqual(result['assistant_handoff']['attempts'][0]['status'],'NEEDS_REVIEW')
     def test_valid_payload(self):
         p=self.h['parse_last_payload']('{"name":"A","group":"G","assignment":"NP-00","score":100}')
         self.assertEqual(p['score'],100)

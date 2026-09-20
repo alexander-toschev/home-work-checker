@@ -1,265 +1,81 @@
-# Homework Checker (JupyterLab harness)
+# Homework Checker: local checks and assistant handoff
 
-This repository contains a **JupyterLab-based homework checker** that:
-- discovers student submissions in a folder,
-- executes each submission with a timeout,
-- extracts the **final structured result** from the last output line/cell,
-- applies an optional late-penalty (if enabled),
-- produces **per-run reports** (CSV/JSON + logs),
-- appends results into **global “all runs” gradebooks**.
+The checker reads a local submission snapshot, archives originals **before execution**, runs `.py` / `.ipynb` checks, and writes local reports. It does **not** authenticate with Google, upload files, clear an inbox, or modify a spreadsheet. The assistant/operator handles Drive intake, verified archival, identity reconciliation and score updates separately.
 
-> ⚠️ Security: this tool executes untrusted student code. Run it in an isolated environment (VM/container), not on a production machine.
+Run student code in an isolated environment without Google credentials. Only synthetic fixtures are used by the test suite. Keep a protected original Drive archive outside the execution environment.
 
----
+## Run
 
-## Contents
-- [Quick start](#quick-start)
-- [Project layout](#project-layout)
-- [Input formats (submissions)](#input-formats-submissions)
-- [Required output contract (what a student must print)](#required-output-contract-what-a-student-must-print)
-- [How grading works](#how-grading-works)
-- [Outputs (reports and gradebooks)](#outputs-reports-and-gradebooks)
-- [Configuration](#configuration)
-- [Troubleshooting](#troubleshooting)
+Clone the repository so `home-work-checker.ipynb`, `submission_review.py` and `checker_handoff.py` are together. Install `nbformat`, `nbclient`, `ipykernel` and the assignment's dependencies in the isolated environment. Open the checker notebook from the repository directory, configure the first cell and run it.
 
----
+- `TARGET_DIR`: local snapshot (`data` by default), with uniquely named files.
+- `GLOB_PATTERNS`: `*.py,*.ipynb`. Discovery is nonrecursive.
+- `DEFAULT_TIMEOUT`: execution timeout; notebook timeout applies per cell.
+- `REPORTS_ROOT`: private archive/reports directory, **one directory per course and semester**.
+- `HW_TYPE`: assignment family label for historical CSVs.
+- `STOP_ON_FAIL=False`: one failure does not stop the batch.
+- `REVIEW_TEMPLATES`: assignment ID to trusted original template path.
+- `SUBMISSION_RECEIPTS`: instructor/assistant-controlled metadata, keyed by relative inbox filename. Do not derive trusted identity, dates or policies from student output.
+- `ASSIGNMENT_POLICIES`: explicit approved grading policy per assignment.
+- `REVIEW_IDENTITIES`: confirmed historical identity overrides, keyed by absolute archive path.
 
-## Quick start
+## Result contract
 
-### 1) Put submissions into `data/`
-By default the checker searches in:
+The submission prints final JSON containing `name`, `group`, `assignment`, `score`. Scores must be finite numbers, not booleans. A successful process without a numeric score is marked `FAILED`. Execution success is not full marks and is not proof of an untampered self-check. The assistant must inspect grading logic against the instructor template before accepting self-reported points.
 
-- `data/*.py`
-- `data/*.ipynb`
+## Trusted receipts and penalties
 
-> Note: discovery is **non-recursive** (`Path.glob`). If you have subfolders, either move files to `data/` or extend the code to use `rglob`.
-
-### 2) Run the checker in JupyterLab
-1. Open JupyterLab
-2. Open `hw_checker.ipynb`
-3. Run all cells (or the last “Run checks” cell)
-
-The run produces a timestamped folder under `reports/` and updates the aggregate CSVs in `reports/`.
-
----
-
-## Project layout
-
-Typical layout:
-
-```
-.
-├─ hw_checker.ipynb          # main checker notebook (harness)
-├─ data/                     # submissions (input)
-└─ reports/                  # results (output)
-   ├─ <RUN_TIMESTAMP>/
-   │  ├─ summary.csv
-   │  ├─ grades.csv
-   │  ├─ summary.json
-   │  ├─ grades.json
-   │  └─ logs/
-   │     ├─ <file>.stdout.txt
-   │     ├─ <file>.stderr.txt
-   │     └─ <file>.last.txt
-   ├─ submissions/
-   │  └─ <RUN_TIMESTAMP>/... # copies of checked submissions
-   ├─ <HW_TYPE>-summary_all_runs.csv
-   └─ <HW_TYPE>-grades_all_runs.csv
-```
-
----
-
-## Input formats (submissions)
-
-The checker supports:
-
-- **Python scripts**: `*.py`
-- **Jupyter notebooks**: `*.ipynb`
-
-Execution details:
-- `*.py` files are executed via `subprocess.run([python, file.py])`
-- `*.ipynb` files are executed via **nbclient** (preferred). If nbclient is unavailable, it falls back to `jupyter nbconvert --execute`.
-
-Working directory:
-- Each submission runs with `cwd = submission.parent`
-- Notebooks run with `resources={'metadata': {'path': notebook.parent}}`
-
-Environment variables passed to submissions:
-- `CHECK_MODE=1` (for `*.py` runs) — you can use it in student code to switch to a faster “grading mode”.
-- `HARN_MTIME_EPOCH=<file_mtime>` — the file modification timestamp (seconds since epoch). Can be used for deadline logic.
-
----
-
-## Required output contract (what a student must print)
-
-The checker extracts the **last non-empty output** and tries to parse it as JSON.
-At minimum, ensure the last output contains:
-
-- `name` (string)
-- `group` (string)
-- `assignment` (string)
-- `score` (number)
-
-### Recommended output (JSON on the last line / last cell output)
-
-Python script example:
+Example configuration (illustrative, not a course policy):
 
 ```python
-import json
-result = {
-  "name": "Alice Example",
-  "group": "208",
-  "assignment": "HW-03",
-  "score": 9.5
+ASSIGNMENT_POLICIES = {
+    'EXAMPLE': {'score_kind': 'raw', 'max_score': 100, 'penalty_mode': 'none'},
 }
-print(json.dumps(result, ensure_ascii=False))
+SUBMISSION_RECEIPTS = {
+    'drive-id__submission.ipynb': {
+        'sha256': '<verified snapshot SHA-256>',
+        'student_id': '<confirmed roster identity>',
+        'expected_name': 'Иван Иванов',
+        'expected_group': '11-601',
+        'assignment': 'EXAMPLE',
+        'submitted_at': '2026-09-20T10:00:00+03:00',
+        'drive_file_id': '<original file ID>',
+        'drive_revision': '<snapshot version>',
+    }
+}
 ```
 
-Notebook example: make your **final cell** print JSON and ensure **nothing prints after it**.
+`penalty_mode='none'` must be explicitly approved. Optional `linear` preserves the original harness formula: `fraction = min(1, max(0, submitted_at-due)/(due-start))`, `final = raw*(1-fraction)`. It requires timezone-aware ISO `start`, `due` and a trusted receipt timestamp. Other formulas remain manual review until implemented and approved. The legacy student-date-based penalty is no longer applied by the runner.
 
-### Fallback formats (less reliable)
-If JSON parsing fails, the checker tries these patterns:
+Unknown policy, non-raw score, invalid scale, missing/mismatched receipt, unknown identity or unresolved review signals result in `NEEDS_REVIEW`. The checker never silently invents a deadline or applies a second penalty. `grades.csv` preserves extracted scores; only `assistant_handoff.json` contains independently calculated proposed final scores.
 
-- `name: ...`
-- `group: ...`
-- `assignment: ...`
-- `score: 9.5`
+## Similarity review
 
-or (last two lines):
-- line `N-1`: name
-- line `N`: score
+The runner reads archived source from current and earlier runs of the same assignment, without executing historical files. It compares added comments, docstrings and Markdown explanations, excluding exact text from supplied instructor templates. Notebook outputs do not count. A single shared long explanation (at least 80 characters and 10 words), or two substantive shared snippets (each at least 40 characters and 6 words), generates a review signal. These are transparent heuristics, not a plagiarism verdict.
 
----
+The report includes file pairs, student claims, evidence text and cell/line locations. It flags retained template names, embedded author-name discrepancies, and conflicts with trusted receipt identity. Exact template subtraction does not recognise every paraphrased instruction, so the instructor must review evidence. Without the original template, shared prose is labelled `TEMPLATE_REQUIRED`.
 
-## How grading works
+Code AST similarity is context only: short identical solutions **never trigger a case by themselves**. Confirmed same-student revisions are excluded from pairwise similarity accusations. Cyrillic/Latin normalisation produces candidate matches, not automatic identity merges. Unknown same-name attempts require identity review; use roster IDs and confirmed aliases to resolve homonyms and transliteration variants.
 
-### Statuses
-Each submission ends in one of:
+## Outputs
 
-- `PASSED` — exit code 0
-- `FAILED` — non-zero exit code
-- `TIMEOUT` — exceeded the per-file timeout
-- `ERROR` — checker-side exception
-- `SKIPPED` — unsupported extension (should not happen with default patterns)
+`reports/<run>/` contains:
 
-### Late penalty (optional / advanced)
-The harness contains a penalty helper:
+- `assistant_handoff.json`: claims, trusted receipt, hash, execution status, independent penalty calculation, holds and review signals.
+- `similarity_review.json` and `.md`: private evidence for teacher decisions.
+- `review_identities.json`: confirmed identity metadata used in this run.
+- `summary.csv/json`, `grades.csv/json`, and execution logs.
 
-```python
-penalty_fraction(start_dt, due_dt, now_dt)
-```
+`reports/submissions/<run>/` keeps original source bytes. Historical `*-all_runs.csv` files are append-only attempt logs, **not** a spreadsheet replacement and not the best-score table. Do not publish archives or private evidence to the public repository.
 
-and then (inside `run_checks`) applies:
+The assistant receives the report, reads the existing Google Sheet, resolves identities against the roster and confirmed aliases, then updates only a strictly better approved final score for the same course/semester/assignment/student. Failed or pending attempts never erase an existing mark. Keep all attempts and decisions until semester end. The assistant verifies the written cells by reading them back.
 
-```
-final_score = score * (1 - penalty_fraction)
-```
+No current student work is processed merely by installing this update. The operator chooses the batch explicitly.
 
-**Important note:** in the current implementation, the default payload extractor only keeps
-`name/group/assignment/score`. If you want the harness to apply a time-based penalty using
-`start_date` / `due_date`, you must extend the payload extraction and grade CSV fields.
-
-A simple, robust alternative is: **let the student notebook compute the penalty itself**
-and output the already penalized `score`.
-
----
-
-## Outputs (reports and gradebooks)
-
-For every run, the checker writes **per-run** files in `reports/<RUN_TIMESTAMP>/`:
-
-### `summary.csv` columns
-- `timestamp` — run timestamp
-- `file` — relative file name
-- `status`
-- `exit_code`
-- `duration_sec`
-- `mtime_epoch`
-- `mtime_iso`
-- `report_dir`
-
-### `grades.csv` columns
-- `timestamp`
-- `file`
-- `name`
-- `group`
-- `assignment`
-- `score`
-- `status`
-- `mtime_iso`
-- `report_dir`
-
-### Logs (if enabled)
-- `reports/<ts>/logs/<file>.stdout.txt`
-- `reports/<ts>/logs/<file>.stderr.txt`
-- `reports/<ts>/logs/<file>.last.txt` (the extracted last output)
-
-### Aggregators (“all runs” gradebooks)
-In `reports/` root, the checker appends rows into:
-
-- `<HW_TYPE>-summary_all_runs.csv`
-- `<HW_TYPE>-grades_all_runs.csv`
-
-This makes it easy to track multiple grading sessions over time without merging CSVs manually.
-
----
-
-## Configuration
-
-At the top of `hw_checker.ipynb` you can change:
-
-- `TARGET_DIR` — folder with submissions (default: `data`)
-- `GLOB_PATTERNS` — comma-separated patterns (default: `*.py,*.ipynb`)
-- `DEFAULT_TIMEOUT` — timeout per file, in seconds
-- `STOP_ON_FAIL` — stop after first failing submission
-- `REPORTS_ROOT` — output root folder (default: `reports`)
-- `SAVE_LOGS` — write stdout/stderr/last-output logs
-- `VERBOSITY` — 0..2
-- `HW_TYPE` — prefix for aggregate CSV names (e.g., `tools`)
-
----
-
-## Troubleshooting
-
-### Notebooks don’t execute (`NBCLIENT_AVAILABLE = False`)
-Install dependencies:
-
-```bash
-pip install nbclient nbformat jupyter
-```
-
-### “No grades extracted” (name/group/score are empty)
-- Check `reports/<ts>/logs/<file>.last.txt`
-- Ensure the **last output** is valid JSON and includes required keys.
-
-### Timeouts
-- Increase `DEFAULT_TIMEOUT`
-- Encourage students to use `CHECK_MODE` to skip heavy training and only run lightweight checks.
-
-### Windows / WSL notes
-- If running under WSL, make sure `jupyter` is available in the same environment as the kernel.
-- If you use browser-based OAuth flows for exports (e.g., Google Sheets), prefer “local server” style auth rather than console-only flows.
-
----
-
-## License
-Add your license here (MIT/Apache-2.0/Proprietary/etc.).
-
-
-## NumPy Task0 compatibility
-
-`cv-course/Tasks/Task0_Numpy.ipynb` emits a single final JSON line with
-`name`, `group`, `assignment="NP-00"`, and a finite numeric `score` (0–100).
-The current Task0 template does not apply a deadline penalty. A task-level
-exception is reported by its self-check and does not discard other tasks' points.
-
-A submission that crashes or emits no valid numeric score is retained in the
-reports with an empty score; it does not stop the remaining batch when
-`STOP_ON_FAIL=False`. A successful process without a valid score is marked
-`FAILED`. `PASSED` describes successful execution and extraction, not full marks.
-
-Core regression tests (no Sheets export or student submissions):
+## Tests
 
 ```sh
 python -m unittest discover -s tests -v
 ```
+
+Tests cover execution failures, invalid scores, penalty boundaries/timezones/caps, missing trusted metadata, boilerplate exclusion, retained names, transliteration candidates, same-student revisions, historical comparisons and short-code false positives. They do not access Google or execute real submissions.

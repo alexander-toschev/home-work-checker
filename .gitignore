@@ -7,3 +7,5 @@ token.json
 reports/summary_all_runs.csv
 reports/grades_all_runs.csv
 /.ipynb_checkpoints
+__pycache__/
+*.pyc
