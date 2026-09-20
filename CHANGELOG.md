@@ -1,5 +1,12 @@
 # Change list / Changelog
 
+## 1.0.1 — 2026-09-20
+
+- RU: предупреждения stderr после JSON больше не скрывают корректный результат последней проверочной ячейки; исходный код студента не изменяется.
+- EN: stderr warnings following the grading JSON no longer hide a valid result from the final grading cell; student source is unchanged.
+- Проверка / Validation: regression test for a trailing NumPy-style warning, plus existing checker and similarity tests.
+
+
 ## 1.0.0 — 2026-09-20
 
 Первая явно нумерованная версия. Предыдущая версия не имела VERSION или тега релиза.

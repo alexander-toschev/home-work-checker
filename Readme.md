@@ -1,6 +1,6 @@
 # Homework Checker: local checks and assistant handoff
 
-Version **1.0.0**. See [change list](CHANGELOG.md). Each handoff records `checker_version` independently from its schema version. Keep the `VERSION` file alongside both Python modules.
+Version **1.0.1**. See [change list](CHANGELOG.md). Each handoff records `checker_version` independently from its schema version. Keep the `VERSION` file alongside both Python modules.
 
 The checker reads a local submission snapshot, archives originals **before execution**, runs `.py` / `.ipynb` checks, and writes local reports. It does **not** authenticate with Google, upload files, clear an inbox, or modify a spreadsheet. The assistant/operator handles Drive intake, verified archival, identity reconciliation and score updates separately.
 

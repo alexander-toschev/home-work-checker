@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'home-work-checker.ipynb'
 def load_harness():
@@ -34,6 +35,23 @@ class CheckerTests(unittest.TestCase):
     def test_valid_payload(self):
         p=self.h['parse_last_payload']('{"name":"A","group":"G","assignment":"NP-00","score":100}')
         self.assertEqual(p['score'],100)
+    def test_stderr_warning_after_grade_does_not_hide_payload(self):
+        import nbformat
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'warning.ipynb'
+            cell = nbformat.v4.new_code_cell('pass')
+            cell.outputs = [
+                nbformat.v4.new_output('stream', name='stdout', text='{"name":"A","group":"G","assignment":"NP-00","score":100}\n'),
+                nbformat.v4.new_output('stream', name='stderr', text='RuntimeWarning: Mean of empty slice.\n'),
+            ]
+            nbformat.write(nbformat.v4.new_notebook(cells=[cell]), path)
+            class Client:
+                def __init__(self, *args, **kwargs): pass
+                def execute(self): pass
+            with patch.dict(self.h, {'NotebookClient': Client, 'NBCLIENT_AVAILABLE': True}):
+                result = self.h['run_notebook'](path, 20)
+            self.assertEqual(result['payload']['score'], 100)
+            self.assertEqual(result['payload']['name'], 'A')
     def test_nonfinite_and_boolean_scores_rejected(self):
         for score in ['NaN','Infinity','true','"nan"']:
             self.assertIsNone(self.h['parse_last_payload']('{"score":'+score+'}')['score'])

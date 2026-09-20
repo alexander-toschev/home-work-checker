@@ -74,7 +74,7 @@ class PenaltyTests(unittest.TestCase):
             report=build_handoff(r,r,[grade],review)
             self.assertFalse(report['writes_google']);self.assertEqual(report['attempts'][0]['status'],'NEEDS_REVIEW')
             self.assertEqual(report['checker_version'],CHECKER_VERSION)
-            self.assertEqual(CHECKER_VERSION,'1.0.0')
+            self.assertEqual(CHECKER_VERSION,(Path(__file__).resolve().parents[1]/'VERSION').read_text().strip())
             receipt={'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'student_id':'s1','assignment':'NP-00','submitted_at':self.p['due']}
             report=build_handoff(r,r,[grade],review,{'NP-00':self.p},{'a.py':receipt})
             self.assertEqual(report['attempts'][0]['penalty']['final_score'],80)
